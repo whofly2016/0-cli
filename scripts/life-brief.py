@@ -6,6 +6,7 @@ Merges lark-cli tasks + calendar agenda into a single Markdown report.
 """
 
 import argparse
+import difflib
 import json
 import subprocess
 import sys
@@ -576,6 +577,7 @@ def main():
     parser.add_argument("--offline", action="store_true", help="Use local planning data only; do not call Lark")
     parser.add_argument("--compact", action="store_true", help="Skip century plan and sources; show only actionable sections")
     parser.add_argument("--review", action="store_true", help="Generate weekly/monthly review template")
+    parser.add_argument("--diff", type=Path, help="Compare generated report with a previous brief file")
     parser.add_argument("--area", help="Filter management/process sections by life area id")
     parser.add_argument("--since", help="Only include events on/after this date (YYYY-MM-DD)")
     parser.add_argument("--until", help="Only include events on/before this date (YYYY-MM-DD)")
@@ -646,6 +648,18 @@ def main():
                 entities, events, management, offline=args.offline,
                 compact=args.compact, area=args.area,
             )
+    if args.diff:
+        if not args.diff.exists():
+            parser.error(f"--diff 文件不存在: {args.diff}")
+        previous = args.diff.read_text(encoding="utf-8")
+        diff = difflib.unified_diff(
+            previous.splitlines(keepends=True),
+            report.splitlines(keepends=True),
+            fromfile=str(args.diff),
+            tofile="current",
+        )
+        report = "".join(diff)
+
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(report, encoding="utf-8")

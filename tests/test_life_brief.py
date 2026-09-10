@@ -142,6 +142,21 @@ class LifeBriefTests(unittest.TestCase):
         self.assertIn("## 目标进展", report)
         self.assertIn("## 复盘问题", report)
 
+    def test_diff_outputs_unified_diff(self):
+        with tempfile.TemporaryDirectory() as folder:
+            previous = Path(folder) / "prev.md"
+            previous.write_text("line1\nline2\n", encoding="utf-8")
+            argv = [str(SCRIPT), "--offline", "--no-entities", "--diff", str(previous)]
+            output = io.StringIO()
+            with patch.object(brief.sys, "argv", argv), redirect_stdout(output), patch.object(
+                brief, "run_lark", side_effect=AssertionError("remote read")
+            ):
+                brief.main()
+            result = output.getvalue()
+            self.assertIn("---", result)
+            self.assertIn("+++", result)
+            self.assertIn("@@", result)
+
 
 if __name__ == "__main__":
     unittest.main()
