@@ -25,6 +25,9 @@ zero run life-brief --page-all --out _brief/life-2026-09-10.md
 
 # JSON 输出（给其他工具）
 zero run life-brief --json
+
+# 关闭实体标注（不读 life-entities.json）
+zero run life-brief --no-entities
 ```
 
 ## 输出结构
@@ -48,6 +51,33 @@ zero run life-brief --json
 ...
 ```
 
+## 实体解析（别名消歧）
+
+`life-brief` 会自动读取 `0_docs/life-entities.json`，在每条任务后面标注涉及的人/公司/项目，例如：
+
+```markdown
+- ⬜ 邮件回原线程附双章扫描件... 〈李慧婕·财务、云天·乙方〉 (due: 2026-09-16)
+```
+
+这用到了本体（ontology）思想：不同名字对应同一个对象。
+
+维护 `life-entities.json`：
+
+```json
+{
+  "entities": [
+    {
+      "id": "li-huijie",
+      "type": "person",
+      "canonical": "李慧婕",
+      "aliases": ["财务", "财务老师"],
+      "role": "财务",
+      "org": "Optix"
+    }
+  ]
+}
+```
+
 ## 实现
 
 - 调用 `lark-cli --profile company task +get-my-tasks --json`
@@ -56,6 +86,7 @@ zero run life-brief --json
 - 调用 `lark-cli --profile life calendar +agenda --json`
 - 合并后按逾期、待完成、日程分组输出
 - 自动过滤 `due_at` 年份 < 2000 的无效日期
+- 读取 `0_docs/life-entities.json` 进行实体标注
 
 ## 依赖
 

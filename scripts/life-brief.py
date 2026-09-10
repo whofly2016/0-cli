@@ -17,6 +17,49 @@ PROFILES = {
     "life": "life",
 }
 
+# Default location of the local entity registry (people / vendors / projects).
+# Lives at the workspace root; never committed to a public repo.
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_ENTITIES_PATH = WORKSPACE_ROOT / "life-entities.json"
+
+
+def load_entities(path: Path | None):
+    """Load entity registry → {alias: entity} lookup. Returns {} if absent."""
+    if path is None:
+        path = DEFAULT_ENTITIES_PATH
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    lookup = {}
+    for ent in data.get("entities", []):
+        for name in [ent.get("canonical", "")] + ent.get("aliases", []):
+            if name:
+                lookup[name] = ent
+    return lookup
+
+
+def annotate(text: str, entity_lookup: dict) -> str:
+    """Append resolved entity tags like 〈李慧婕·财务, 云天·乙方〉."""
+    if not entity_lookup or not text:
+        return text
+    found = []
+    seen_ids = set()
+    # Match longer aliases first so "云天科技" wins over "云天"
+    for alias in sorted(entity_lookup.keys(), key=len, reverse=True):
+        if alias and alias in text:
+            ent = entity_lookup[alias]
+            if ent.get("id") in seen_ids:
+                continue
+            seen_ids.add(ent.get("id"))
+            role = ent.get("role") or ent.get("type") or ""
+            found.append(f"{ent.get('canonical')}·{role}" if role else ent.get("canonical"))
+    if found:
+        return f"{text} 〈{'、'.join(found)}〉"
+    return text
+
 
 def run_lark(args, profile):
     """Run lark-cli with a profile and return JSON data."""
@@ -68,8 +111,9 @@ def _due_date(due: str) -> str:
     return due.split("T")[0] if _is_valid_due(due) else ""
 
 
-def fmt_task(t):
+def fmt_task(t, entity_lookup=None):
     summary = t.get("summary", "(no summary)")
+    summary = annotate(summary, entity_lookup or {})
     due = t.get("due_at", "")
     completed = t.get("completed", False)
     status = "✅" if completed else "⬜"
@@ -100,7 +144,7 @@ def fmt_event(e):
     return f"- {start} - {end} {summary}"
 
 
-def generate_report(date, days, profiles, page_all=False):
+def generate_report(date, days, profiles, page_all=False, entity_lookup=None):
     lines = [f"# 人生简报（{date}，{days} 天）", ""]
     for name, profile in profiles.items():
         lines.append(f"## {name}（profile: {profile}）")
@@ -127,11 +171,11 @@ def generate_report(date, days, profiles, page_all=False):
 
             lines.append(f"### 任务（未完成 {len(active)} 项）")
             for t in overdue[:10]:
-                lines.append(f"- 🔴 逾期 {t.get('summary')} (due: {_due_date(t.get('due_at', ''))})")
+                lines.append(fmt_task(t, entity_lookup))
             for t in upcoming[:10]:
-                lines.append(f"- ⬜ {t.get('summary')} (due: {_due_date(t.get('due_at', ''))})")
+                lines.append(fmt_task(t, entity_lookup))
             for t in no_due[:5]:
-                lines.append(f"- ⬜ {t.get('summary')} (无截止日期)")
+                lines.append(fmt_task(t, entity_lookup))
 
         start = f"{date}T00:00:00+08:00"
         end_date = (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=days)).strftime(
@@ -158,9 +202,19 @@ def main():
     parser.add_argument("--out", type=Path, help="Output file (default: stdout)")
     parser.add_argument("--json", action="store_true", help="Output JSON")
     parser.add_argument("--page-all", action="store_true", help="Fetch all task pages")
+    parser.add_argument(
+        "--entities",
+        type=Path,
+        default=DEFAULT_ENTITIES_PATH,
+        help="Entity/alias registry JSON",
+    )
+    parser.add_argument(
+        "--no-entities", action="store_true", help="Disable entity annotation"
+    )
     args = parser.parse_args()
 
     profiles = {name: PROFILES.get(name, name) for name in args.profiles.split(",")}
+    entity_lookup = {} if args.no_entities else load_entities(args.entities)
 
     if args.json:
         result = {}
@@ -177,7 +231,7 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
 
-    report = generate_report(args.date, args.days, profiles, args.page_all)
+    report = generate_report(args.date, args.days, profiles, args.page_all, entity_lookup)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(report, encoding="utf-8")
