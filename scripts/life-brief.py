@@ -27,7 +27,8 @@ def run_lark(args, profile):
     if result.returncode != 0:
         return {"error": result.stderr}
     try:
-        return json.loads(result.stdout)
+        # lark-cli 1.0.65 may emit raw control chars inside JSON strings.
+        return json.loads(result.stdout, strict=False)
     except json.JSONDecodeError:
         return {"error": "invalid json output"}
 
