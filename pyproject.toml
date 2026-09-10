@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zerocli"
-version = "0.2.5"
+version = "0.2.6"
 description = "Local CLI-Anything hub for the 0_docs workspace"
 readme = "README.md"
 requires-python = ">=3.10"

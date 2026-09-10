@@ -132,6 +132,18 @@ def run(name: str, args: tuple[str, ...], dry_run: bool):
 
 @cli.command()
 @click.option("--json", "json_flag", is_flag=True, help="Output JSON")
+def scan(json_flag: bool):
+    """Scan workspace for cli-anything-registry.json files."""
+    found = registry.scan()
+    if json_flag:
+        click.echo(json.dumps(found, ensure_ascii=False, indent=2))
+        return
+    for item in found:
+        click.echo(f"{item.get('name')} ({item.get('version')}) - {item.get('_path')}")
+
+
+@cli.command()
+@click.option("--json", "json_flag", is_flag=True, help="Output JSON")
 def doctor(json_flag: bool):
     """Validate the local registry."""
     issues = registry.validate()

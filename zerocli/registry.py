@@ -35,6 +35,28 @@ def skill_path(entry: dict[str, Any]) -> Path | None:
     return WORKSPACE_ROOT / path
 
 
+def skill_md_path(entry: dict) -> Path | None:
+    """Resolve the skill markdown path for an entry."""
+    skill_md = entry.get("skill_md")
+    if not skill_md:
+        return None
+    path = WORKSPACE_ROOT / skill_md
+    return path if path.exists() else None
+
+
+def scan() -> list[dict]:
+    """Scan workspace for cli-anything-registry.json files."""
+    found = []
+    for path in WORKSPACE_ROOT.rglob("cli-anything-registry.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["_path"] = str(path.relative_to(WORKSPACE_ROOT))
+            found.append(data)
+        except Exception:
+            continue
+    return found
+
+
 def validate() -> list[str]:
     issues = []
     data = load()
