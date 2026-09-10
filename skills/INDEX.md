@@ -25,5 +25,6 @@
 | lark-cli | [lark-cli.md](lark-cli.md) | wrapper |
 | lark-cli-work | [lark-cli-work.md](lark-cli-work.md) | wrapper |
 | lark-cli-life | [lark-cli-life.md](lark-cli-life.md) | wrapper |
+| life-brief | [life-brief.md](life-brief.md) | wrapper |
 
 完整注册表见 `../local_registry.json`。

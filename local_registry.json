@@ -237,6 +237,17 @@
       "source_dir": "tools/lark-cli",
       "skill_md": "tools/0-cli/skills/lark-cli-life.md",
       "invoke_template": "lark-cli --profile life {args}"
+    },
+    {
+      "name": "life-brief",
+      "display_name": "Life Brief",
+      "version": "0.1.0",
+      "description": "Generate a unified daily/weekly brief merging company and personal Feishu data.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/0-cli",
+      "skill_md": "tools/0-cli/skills/life-brief.md",
+      "invoke_template": "python tools/0-cli/scripts/life-brief.py {args}"
     }
   ]
 }
