@@ -142,6 +142,16 @@ def scan(json_flag: bool):
         click.echo(f"{item.get('name')} ({item.get('version')}) - {item.get('_path')}")
 
 
+@cli.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True),
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+@click.option("--dry-run", is_flag=True, help="Print the command without executing")
+def brief(args: tuple[str, ...], dry_run: bool):
+    """Generate life/work brief (shortcut for 'zero run life-brief')."""
+    sys.exit(runner.run("life-brief", list(args), dry_run=dry_run))
+
+
 @cli.command()
 @click.option("--json", "json_flag", is_flag=True, help="Output JSON")
 def doctor(json_flag: bool):

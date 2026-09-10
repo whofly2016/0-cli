@@ -33,6 +33,8 @@ zero doctor                 # 校验 registry 与本地文件一致性
 zero doctor --json          # JSON 输出校验结果
 zero scan                   # 扫描 workspace 中的 cli-anything-registry.json
 zero scan --json            # JSON 输出扫描结果
+zero brief                  # 生成人生简报（等价于 zero run life-brief）
+zero brief --offline --days 7 --out _brief/life-week.md
 ```
 
 ## 注册新工具
