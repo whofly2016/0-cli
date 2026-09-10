@@ -22,6 +22,7 @@ PROFILES = {
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ENTITIES_PATH = WORKSPACE_ROOT / "life-entities.json"
 DEFAULT_EVENTS_PATH = WORKSPACE_ROOT / "life-events.jsonl"
+DEFAULT_MANAGEMENT_PATH = WORKSPACE_ROOT / "life-management.json"
 
 
 def _read_json(path: Path):
@@ -69,6 +70,120 @@ def load_events(path: Path | None):
         except Exception:
             continue
     return events
+
+
+def load_management(path: Path | None):
+    """Load the life-management control layer. Returns {} if absent."""
+    path = path or DEFAULT_MANAGEMENT_PATH
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"无法读取人生管理文件 {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"人生管理文件必须是 JSON 对象: {path}")
+    return data
+
+
+def _calendar_date(value):
+    """Return an ISO date or None; never invent dates for unknown records."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _open_processes(entities):
+    closed = {"done", "completed", "cancelled", "canceled", "archived"}
+    return {
+        pid: proc for pid, proc in entities.items()
+        if proc.get("type") == "process" and proc.get("status") not in closed
+    }
+
+
+def century_section(management, report_date, days=1):
+    """Render proposals and recorded evidence without predicting health or lifespan."""
+    plan = management.get("century_plan") or {}
+    if not plan:
+        return []
+    horizon = plan.get("planning_horizon") or {}
+    target_age = horizon.get("age_years")
+    lines = ["## 百岁人生规划", ""]
+    if target_age is not None:
+        lines.append(f"**规划上限**：{target_age} 岁（规划假设，不是寿命预测）。")
+    birth = _calendar_date(plan.get("date_of_birth"))
+    if birth and birth <= report_date:
+        born = datetime.strptime(birth, "%Y-%m-%d")
+        today = datetime.strptime(report_date, "%Y-%m-%d")
+        age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+        lines.append(f"**当前年龄**：{age} 周岁（按已记录出生日期和简报日期计算）。")
+        if isinstance(target_age, (int, float)) and age >= target_age:
+            lines.append("已达到当前规划上限，可延长规划；这不表示生命到期。")
+    else:
+        lines.append("**当前年龄**：未知；出生日期未记录、无效或晚于简报日期，不计算剩余时间。")
+
+    design = plan.get("life_design") or {}
+    if design.get("ordinary_day"):
+        lines.extend(["", f"**生活设想（候选）**：{design['ordinary_day']}"])
+    scenarios = design.get("age_scenarios") or []
+    if scenarios:
+        lines.extend(["", "| 年龄参照 | 可调整的生活章节 |", "|---|---|"])
+        for stage in scenarios:
+            lines.append(f"| {stage.get('label', '')} | {stage.get('theme', '')}：{stage.get('scene', '')} |")
+        lines.append("")
+        lines.append("年龄仅作想象坐标，不是固定的婚育、退休或能力时间表。")
+
+    health = plan.get("health_plan") or {}
+    baseline = health.get("baseline") or []
+    recorded = [
+        item for item in baseline
+        if item.get("value") is not None and item.get("source")
+        and _calendar_date(item.get("observed_on"))
+        and _calendar_date(item["observed_on"]) <= report_date
+    ]
+    lines.extend([
+        "", "### 健康维护", "",
+        f"**有日期与来源的基线记录**：{len(recorded)}/{len(baseline)} 项；这是信息完整度，不是健康评分，旧记录也不代表当前状态。",
+    ])
+    missing = [item.get("name", item.get("id", "未知项")) for item in baseline if item not in recorded]
+    if missing:
+        lines.append(f"**待补充资料**：{'、'.join(missing)}。")
+    references = health.get("references") or []
+    if references:
+        lines.extend(["", "以下是一般参考，尚未按你的年龄、疾病或运动限制个体化：", ""])
+        for reference in references:
+            refs = " ".join(f"[{sid}]" for sid in reference.get("source_ids", []))
+            lines.append(f"- {reference.get('text', '')} {refs}")
+
+    candidates = [g for g in management.get("goals", []) if g.get("status") in {"proposed", "draft"}]
+    if candidates:
+        lines.extend(["", "### 90 天候选行动（未自动成为承诺）", ""])
+        for goal in candidates:
+            lines.append(f"- **{goal.get('title', goal.get('id', '候选目标'))}**：{goal.get('next_action', '待定义')}")
+        lines.append("")
+        lines.append("90 天从实际开始试行时起算；此处没有创建外部任务或预约。")
+
+    questions = plan.get("review_questions") or []
+    if questions:
+        lines.extend(["", "### 生活复盘", ""])
+        lines.extend(f"- {q}" for q in (questions if days >= 7 else questions[:2]))
+    lines.append("")
+    return lines
+
+
+def century_sources(management):
+    sources = (management.get("century_plan") or {}).get("sources") or []
+    if not sources:
+        return []
+    checked_on = ((management.get("century_plan") or {}).get("health_plan") or {}).get("sources_checked_on")
+    lines = ["## 健康参考来源", "", f"一般指南不代表个人寿命预测；最近核对：{checked_on or '未知'}。", ""]
+    for source in sources:
+        lines.append(f"[{source['id']}]: {source['url']} \"{source.get('publisher', '')} — {source.get('title', '')}\"")
+    lines.append("")
+    return lines
 
 
 def annotate(text: str, entity_lookup: dict) -> str:
@@ -141,7 +256,8 @@ def _due_date(due: str) -> str:
     return due.split("T")[0] if _is_valid_due(due) else ""
 
 
-def fmt_task(t, entity_lookup=None):
+def fmt_task(t, entity_lookup=None, report_date=None):
+    report_date = report_date or datetime.now().strftime("%Y-%m-%d")
     summary = t.get("summary", "(no summary)")
     summary = annotate(summary, entity_lookup or {})
     due = t.get("due_at", "")
@@ -149,7 +265,7 @@ def fmt_task(t, entity_lookup=None):
     status = "✅" if completed else "⬜"
     if not completed and _is_valid_due(due):
         due_date = _due_date(due)
-        if due_date < datetime.now().strftime("%Y-%m-%d"):
+        if due_date < report_date:
             status = "🔴"
     due_display = _due_date(due) if _is_valid_due(due) else "(无截止日期)"
     return f"- {status} {summary} (due: {due_display})"
@@ -174,14 +290,13 @@ def fmt_event(e):
     return f"- {start} - {end} {summary}"
 
 
-def process_section(entities, events):
+def process_section(entities, events, report_date=None):
     """Render 'in-progress processes' from entity registry + event log."""
-    processes = {
-        k: v for k, v in entities.items() if v.get("type") == "process"
-    }
+    report_date = report_date or datetime.now().strftime("%Y-%m-%d")
+    processes = _open_processes(entities)
     if not processes:
         return []
-    lines = ["## 进行中的过程", ""]
+    lines = ["## 已登记且未关闭的过程", ""]
     for pid, proc in sorted(
         processes.items(), key=lambda x: x[1].get("canonical", "")
     ):
@@ -199,26 +314,97 @@ def process_section(entities, events):
             where = nxt.get("where", "")
             when = nxt.get("when", "")
             detail = nxt.get("brief") or nxt.get("detail", "")
-            lines.append(f"**下一步**：{when} @{where} → {nxt.get('action')}：{detail}")
+            label = "计划已过期，待核实" if str(when)[:10] < report_date else "下一计划事件"
+            lines.append(f"**{label}**：{when} @{where} → {nxt.get('action')}：{detail}")
         else:
-            lines.append("**下一步**：暂无")
+            lines.append("**下一步**：未记录计划事件（不表示没有行动）。")
         lines.append("")
     return lines
 
 
+def management_section(management, entities, events, report_date=None):
+    """Render a compact portfolio/control view above raw task lists."""
+    if not management:
+        return []
+    report_date = report_date or datetime.now().strftime("%Y-%m-%d")
+
+    areas = {a.get("id"): a for a in management.get("areas", []) if a.get("id")}
+    portfolio = management.get("portfolio", [])
+    goals = management.get("goals", [])
+    north_star = management.get("north_star", {})
+    lines = ["## 人生管理视图", ""]
+
+    if north_star.get("statement"):
+        label = "长期方向（候选）" if north_star.get("status") in {"proposed", "draft"} else "长期方向"
+        lines.append(f"**{label}**：{north_star['statement']}")
+    else:
+        lines.append("**长期方向**：待定义")
+    adopted = sum(g.get("status") in {"active", "adopted", "in_progress"} for g in goals)
+    proposed = sum(g.get("status") in {"proposed", "draft"} for g in goals)
+    lines.append(f"**已采纳且未完成目标**：{adopted} 个；**候选目标**：{proposed} 个。")
+    lines.append("")
+
+    active_by_area = {}
+    unmapped = []
+    for pid, proc in _open_processes(entities).items():
+        mapping = next((x for x in portfolio if x.get("process") == pid), None)
+        if not mapping:
+            unmapped.append(proc.get("canonical", pid))
+            continue
+        active_by_area.setdefault(mapping.get("area"), []).append(proc)
+
+    for area_id, procs in active_by_area.items():
+        area = areas.get(area_id, {"name": area_id})
+        stale = 0
+        no_next = 0
+        for proc in procs:
+            pid = proc.get("id")
+            planned = [e for e in events if e.get("object") == pid and e.get("state") == "planned"]
+            if not planned:
+                no_next += 1
+            lifespan = proc.get("lifespan") or {}
+            if lifespan.get("to") and lifespan.get("to") < report_date:
+                stale += 1
+        flags = []
+        if no_next:
+            flags.append(f"{no_next} 个未记录计划事件")
+        if stale:
+            flags.append(f"{stale} 个结束日期已过，状态待核实")
+        suffix = f"；⚠️ {'，'.join(flags)}" if flags else ""
+        names = "、".join(p.get("canonical", p.get("id", "")) for p in procs)
+        lines.append(f"- **{area.get('name', area_id)}**：{len(procs)} 个已登记过程（{names}）{suffix}")
+
+    unassessed = [a.get("name") for a in areas.values() if a.get("status") == "unassessed"]
+    if unassessed:
+        lines.append(f"- **尚未建立基线的领域**：{'、'.join(unassessed)}")
+    if unmapped:
+        lines.append(f"- **未归属领域的过程**：{'、'.join(unmapped)}")
+    lines.append("")
+    return lines
+
+
 def generate_report(
-    date, days, profiles, page_all=False, entity_lookup=None, entities=None, events=None
+    date, days, profiles, page_all=False, entity_lookup=None, entities=None, events=None,
+    management=None, offline=False
 ):
     entities = entities or {}
     events = events or []
+    management = management or {}
     lines = [f"# 人生简报（{date}，{days} 天）", ""]
+    if offline:
+        lines.extend(["离线模式：只读取本地规划、实体与事件；未获取飞书任务或日程。", ""])
+    lines.extend(century_section(management, date, days))
+
+    mgmt_lines = management_section(management, entities, events, date)
+    if mgmt_lines:
+        lines.extend(mgmt_lines)
 
     # Spacetime process view: ordered processes and next events.
-    proc_lines = process_section(entities, events)
+    proc_lines = process_section(entities, events, date)
     if proc_lines:
         lines.extend(proc_lines)
 
-    for name, profile in profiles.items():
+    for name, profile in ({} if offline else profiles).items():
         lines.append(f"## {name}（profile: {profile}）")
 
         tasks_result = collect_tasks(profile, page_all)
@@ -243,11 +429,11 @@ def generate_report(
 
             lines.append(f"### 任务（未完成 {len(active)} 项）")
             for t in overdue[:10]:
-                lines.append(fmt_task(t, entity_lookup))
+                lines.append(fmt_task(t, entity_lookup, date))
             for t in upcoming[:10]:
-                lines.append(fmt_task(t, entity_lookup))
+                lines.append(fmt_task(t, entity_lookup, date))
             for t in no_due[:5]:
-                lines.append(fmt_task(t, entity_lookup))
+                lines.append(fmt_task(t, entity_lookup, date))
 
         start = f"{date}T00:00:00+08:00"
         end_date = (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=days)).strftime(
@@ -263,6 +449,7 @@ def generate_report(
             for e in events[:10]:
                 lines.append(fmt_event(e))
         lines.append("")
+    lines.extend(century_sources(management))
     return "\n".join(lines)
 
 
@@ -274,6 +461,8 @@ def main():
     parser.add_argument("--out", type=Path, help="Output file (default: stdout)")
     parser.add_argument("--json", action="store_true", help="Output JSON")
     parser.add_argument("--page-all", action="store_true", help="Fetch all task pages")
+    parser.add_argument("--offline", action="store_true", help="Use local planning data only; do not call Lark")
+    parser.add_argument("--events", type=Path, default=DEFAULT_EVENTS_PATH, help="Local event log JSONL")
     parser.add_argument(
         "--entities",
         type=Path,
@@ -283,43 +472,55 @@ def main():
     parser.add_argument(
         "--no-entities", action="store_true", help="Disable entity annotation"
     )
+    parser.add_argument(
+        "--management",
+        type=Path,
+        default=DEFAULT_MANAGEMENT_PATH,
+        help="Life-management control layer JSON",
+    )
     args = parser.parse_args()
+    if not _calendar_date(args.date):
+        parser.error("--date 必须是有效的 YYYY-MM-DD 日期")
+    if args.days < 1:
+        parser.error("--days 必须大于 0")
 
-    profiles = {name: PROFILES.get(name, name) for name in args.profiles.split(",")}
+    profiles = {name.strip(): PROFILES.get(name.strip(), name.strip()) for name in args.profiles.split(",") if name.strip()}
     entity_lookup = {} if args.no_entities else load_entities(args.entities)
     entities = {} if args.no_entities else load_entities_by_id(args.entities)
-    events = load_events(DEFAULT_EVENTS_PATH)
+    events = load_events(args.events)
+    try:
+        management = load_management(args.management)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if args.json:
-        result = {}
-        for name, profile in profiles.items():
-            result[name] = {
-                "tasks": collect_tasks(profile, args.page_all),
-                "agenda": collect_agenda(
-                    profile,
-                    f"{args.date}T00:00:00+08:00",
-                    f"{args.date}T23:59:59+08:00",
-                ),
+        if args.offline:
+            result = {
+                "date": args.date, "days": args.days, "offline": True,
+                "management": management, "entities": entities, "events": events,
+                "remote_status": "not_fetched",
             }
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return
-
-    report = generate_report(
-        args.date,
-        args.days,
-        profiles,
-        args.page_all,
-        entity_lookup,
-        entities,
-        events,
-    )
+        else:
+            end_date = (datetime.strptime(args.date, "%Y-%m-%d") + timedelta(days=args.days)).strftime("%Y-%m-%d")
+            result = {}
+            for name, profile in profiles.items():
+                result[name] = {
+                    "tasks": collect_tasks(profile, args.page_all),
+                    "agenda": collect_agenda(profile, f"{args.date}T00:00:00+08:00", f"{end_date}T00:00:00+08:00"),
+                }
+        report = json.dumps(result, ensure_ascii=False, indent=2)
+    else:
+        report = generate_report(
+            args.date, args.days, profiles, args.page_all, entity_lookup,
+            entities, events, management, offline=args.offline,
+        )
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(report, encoding="utf-8")
         print(f"written: {args.out}")
     else:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         print(report)
 
 

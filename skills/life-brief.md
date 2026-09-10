@@ -28,7 +28,25 @@ zero run life-brief --json
 
 # 关闭实体标注（不读 life-entities.json）
 zero run life-brief --no-entities
+
+# 百岁人生规划：仅用本地资料，不调用飞书
+zero run life-brief --offline --days 7 --out _brief/life-100-plan-2026-09-10.md
+
+# 离线结构化数据；明确标记 remote_status=not_fetched
+zero run life-brief --offline --json --out _brief/life-local.json
 ```
+
+## 百岁人生规划与数据含义
+
+读取工作区根 `life-management.json` 的 `century_plan`，展示百岁规划假设、候选生活章节、健康基线缺口、90 天候选行动和复盘问题。完整方案见工作区的 `notes/life-100-year-plan.md`。
+
+- 100 岁是用户选择的规划假设，不是寿命预测；出生日期未知时不计算年龄或剩余时间。
+- `proposed` / `draft` 目标与已采纳目标分开计数，生活设想不自动创建任务或预约。
+- 健康数据只有带有效观察日期与来源、且不晚于简报日期，才计入“有记录”数量；这是资料完整度，不是健康评分，也不保证旧数据仍有效。
+- `--offline` 不调用 `lark-cli`，不把未查询的远程任务/日程显示为 0；普通模式保持原有飞书采集路径。
+- `--date` 用于任务逾期与过程日期比较；过期计划显示“待核实”，不自动标为已完成。`--days` 同时用于 Markdown 和在线 JSON 的日程范围。
+- `--events` 可指定事件日志。离线 JSON 包含本地规划、实体、事件和未获取远程数据标记；在线 JSON 保持 profile 顶层结构。
+- 数据格式错误会报告错误，不能将损坏的管理文件静默当作无数据。健康来源至少每年及状态明显变化时复核；这些规则本身不代表定时任务已启用。
 
 ## 输出结构
 
