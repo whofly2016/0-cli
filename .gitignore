@@ -1,0 +1,12 @@
+# Python cache and build artifacts.
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# Local state and secrets.
+*.local.json
+*.secret.*
+*.token

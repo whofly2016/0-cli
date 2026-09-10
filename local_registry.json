@@ -1,0 +1,242 @@
+{
+  "meta": {
+    "name": "0_docs local CLI registry",
+    "version": "0.1.0",
+    "updated": "2026-09-10",
+    "schema_doc": "tools/0-cli/README.md"
+  },
+  "entries": [
+    {
+      "name": "work-manager",
+      "display_name": "Work Manager",
+      "version": "0.51.0",
+      "description": "0_docs work state management: sync, query, report, weekly, trend, export, dashboard, list metrics/backups, report date.",
+      "category": "productivity",
+      "status": "ready",
+      "source_dir": "tools/work-manager",
+      "skill_md": "tools/work-manager/skills/SKILL.md",
+      "install_cmd": "pip install -e tools/work-manager",
+      "entry_point": "wm",
+      "invoke_template": "wm {args}"
+    },
+    {
+      "name": "hermes-admin",
+      "display_name": "Hermes Admin",
+      "version": "0.1.0",
+      "description": "Manage the hermes Feishu MCP bot on 254 via WinRM/WSL.",
+      "category": "devops",
+      "status": "wrapper",
+      "source_dir": "tools/hermes-admin",
+      "skill_md": "tools/0-cli/skills/hermes-admin.md",
+      "invoke_template": "pwsh -File tools/hermes-admin/hermes.ps1 {args}"
+    },
+    {
+      "name": "ai-daily-brief",
+      "display_name": "AI Daily Brief",
+      "version": "0.1.0",
+      "description": "Generate daily brief data draft from VRSK tasks and infosec progress.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/ai-workflow",
+      "skill_md": "tools/0-cli/skills/ai-daily-brief.md",
+      "invoke_template": "pwsh -File tools/ai-workflow/daily_brief.ps1"
+    },
+    {
+      "name": "ai-weekly-report",
+      "display_name": "AI Weekly Report",
+      "version": "0.1.0",
+      "description": "Generate weekly report data draft from VRSK tasks and infosec tables.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/ai-workflow",
+      "skill_md": "tools/0-cli/skills/ai-weekly-report.md",
+      "invoke_template": "pwsh -File tools/ai-workflow/weekly_report.ps1"
+    },
+    {
+      "name": "ai-vrsk-tasks",
+      "display_name": "AI VRSK Tasks Snapshot",
+      "version": "0.1.0",
+      "description": "Pull full VRSK task list sections and tasks snapshot.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/ai-workflow",
+      "skill_md": "tools/0-cli/skills/ai-vrsk-tasks.md",
+      "invoke_template": "pwsh -File tools/ai-workflow/vrsk_tasks.ps1"
+    },
+    {
+      "name": "ai-infosec-status",
+      "display_name": "AI Infosec Status",
+      "version": "0.1.0",
+      "description": "Pull infosec Base tables snapshot for status tracking.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/ai-workflow",
+      "skill_md": "tools/0-cli/skills/ai-infosec-status.md",
+      "invoke_template": "pwsh -File tools/ai-workflow/infosec_status.ps1"
+    },
+    {
+      "name": "ai-dispatch",
+      "display_name": "AI Dispatch",
+      "version": "0.1.0",
+      "description": "Dispatch inbox task cards to codex exec headless runners.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/ai-workflow",
+      "skill_md": "tools/0-cli/skills/ai-dispatch.md",
+      "invoke_template": "pwsh -File tools/ai-workflow/dispatch.ps1 {args}"
+    },
+    {
+      "name": "claude-collab",
+      "display_name": "Claude Collab",
+      "version": "0.1.0",
+      "description": "Orchestrate two Claude Code instances (master/worker) via a file bus.",
+      "category": "ai",
+      "status": "wrapper",
+      "source_dir": "tools/claude-collab",
+      "skill_md": "tools/0-cli/skills/claude-collab.md",
+      "invoke_template": "pwsh -File tools/claude-collab/start-collab.ps1 {args}"
+    },
+    {
+      "name": "lark-docx-clone",
+      "display_name": "Lark Docx Clone",
+      "version": "0.1.0",
+      "description": "Clone Feishu/Lark docx documents to local Markdown or txt.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "1_optix/scripts",
+      "skill_md": "tools/0-cli/skills/lark-docx-clone.md",
+      "invoke_template": "node 1_optix/scripts/lark_docx_clone.js {args}"
+    },
+    {
+      "name": "patents-export-site",
+      "display_name": "Patents Export Site",
+      "version": "0.1.0",
+      "description": "Generate patent pipeline site data.js from the SQLite database.",
+      "category": "patents",
+      "status": "wrapper",
+      "source_dir": "patents/pipeline",
+      "skill_md": "tools/0-cli/skills/patents-export-site.md",
+      "invoke_template": "cd patents/pipeline && python scripts/export_site_data.py"
+    },
+    {
+      "name": "patents-validate",
+      "display_name": "Patents Validate",
+      "version": "0.1.0",
+      "description": "Validate cross-table consistency of the patent pipeline database.",
+      "category": "patents",
+      "status": "wrapper",
+      "source_dir": "patents/pipeline",
+      "skill_md": "tools/0-cli/skills/patents-validate.md",
+      "invoke_template": "cd patents/pipeline && python scripts/validate_pipeline_state.py --db patent_pipeline.local.sqlite --output-md _brief/patents-validate.md --output-json _brief/patents-validate.json {args}"
+    },
+    {
+      "name": "patents-refresh",
+      "display_name": "Patents Refresh",
+      "version": "0.1.0",
+      "description": "Refresh scores, review packages, reports, and site data for selected opportunities.",
+      "category": "patents",
+      "status": "wrapper",
+      "source_dir": "patents/pipeline",
+      "skill_md": "tools/0-cli/skills/patents-refresh.md",
+      "invoke_template": "cd patents/pipeline && python scripts/refresh_pipeline_outputs.py {args}"
+    },
+    {
+      "name": "ai-week-rollcall",
+      "display_name": "AI Week Rollcall",
+      "version": "0.1.0",
+      "description": "GUI random rollcall picker for the infosec software trial Feishu group.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "ai-week/tools/rollcall",
+      "skill_md": "tools/0-cli/skills/ai-week-rollcall.md",
+      "invoke_template": "pwsh -File ai-week/tools/rollcall/RollCall.ps1"
+    },
+    {
+      "name": "monitor-install-sk2display",
+      "display_name": "Monitor Install SK2Display",
+      "version": "0.1.0",
+      "description": "Install the SK2Display 8K DSC monitor INF (requires Administrator).",
+      "category": "hardware",
+      "status": "wrapper",
+      "source_dir": "tools/monitor",
+      "skill_md": "tools/0-cli/skills/monitor-install-sk2display.md",
+      "invoke_template": "pwsh -File tools/monitor/scripts/driver/install_sk2display_monitor_inf.ps1"
+    },
+    {
+      "name": "monitor-install-steamvr",
+      "display_name": "Monitor Install SteamVR Driver",
+      "version": "0.1.0",
+      "description": "Install or uninstall the SK2VR SteamVR driver (requires Administrator).",
+      "category": "hardware",
+      "status": "wrapper",
+      "source_dir": "tools/monitor",
+      "skill_md": "tools/0-cli/skills/monitor-install-steamvr.md",
+      "invoke_template": "pwsh -File tools/monitor/scripts/driver/install_steamvr_driver.ps1 {args}"
+    },
+    {
+      "name": "monitor-clean-topology",
+      "display_name": "Monitor Clean Topology",
+      "version": "0.1.0",
+      "description": "Clear Windows Display Topology cache (requires Administrator and reboot).",
+      "category": "hardware",
+      "status": "wrapper",
+      "source_dir": "tools/monitor",
+      "skill_md": "tools/0-cli/skills/monitor-clean-topology.md",
+      "invoke_template": "pwsh -File tools/monitor/scripts/system/clean_topology.ps1"
+    },
+    {
+      "name": "infosec-test-ports",
+      "display_name": "Infosec Test Ports",
+      "version": "0.1.0",
+      "description": "Test Sangfor SASE required ports (443, 8083, 54120).",
+      "category": "security",
+      "status": "wrapper",
+      "source_dir": "infosec/tests",
+      "skill_md": "tools/0-cli/skills/infosec-test-ports.md",
+      "invoke_template": "pwsh -File infosec/tests/test_ports.ps1"
+    },
+    {
+      "name": "feishu-helper",
+      "display_name": "Feishu Helper",
+      "version": "0.1.0",
+      "description": "Chrome extension that fills gaps in Feishu Open API via content-script browser automation.",
+      "category": "productivity",
+      "status": "documented",
+      "source_dir": "tools/feishu-helper",
+      "skill_md": "tools/0-cli/skills/feishu-helper.md"
+    },
+    {
+      "name": "lark-cli",
+      "display_name": "Lark CLI",
+      "version": "1.0.94",
+      "description": "Official Lark/Feishu CLI with multi-profile support for company and personal accounts.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/lark-cli",
+      "skill_md": "tools/0-cli/skills/lark-cli.md",
+      "invoke_template": "lark-cli {args}"
+    },
+    {
+      "name": "lark-cli-work",
+      "display_name": "Lark CLI Work",
+      "version": "1.0.94",
+      "description": "Lark CLI wrapper for the company (work) Feishu profile.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/lark-cli",
+      "skill_md": "tools/0-cli/skills/lark-cli-work.md",
+      "invoke_template": "lark-cli --profile company {args}"
+    },
+    {
+      "name": "lark-cli-life",
+      "display_name": "Lark CLI Life",
+      "version": "1.0.94",
+      "description": "Lark CLI wrapper for the life (personal) Feishu profile.",
+      "category": "productivity",
+      "status": "wrapper",
+      "source_dir": "tools/lark-cli",
+      "skill_md": "tools/0-cli/skills/lark-cli-life.md",
+      "invoke_template": "lark-cli --profile life {args}"
+    }
+  ]
+}

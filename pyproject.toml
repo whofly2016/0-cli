@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zerocli"
+version = "0.2.5"
+description = "Local CLI-Anything hub for the 0_docs workspace"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Cascade"}]
+dependencies = [
+    "click>=8.0",
+]
+
+[project.scripts]
+zero = "zerocli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["zerocli*"]
