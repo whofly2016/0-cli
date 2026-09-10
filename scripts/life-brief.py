@@ -21,17 +21,22 @@ PROFILES = {
 # Lives at the workspace root; never committed to a public repo.
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ENTITIES_PATH = WORKSPACE_ROOT / "life-entities.json"
+DEFAULT_EVENTS_PATH = WORKSPACE_ROOT / "life-events.jsonl"
+
+
+def _read_json(path: Path):
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
 
 
 def load_entities(path: Path | None):
     """Load entity registry → {alias: entity} lookup. Returns {} if absent."""
-    if path is None:
-        path = DEFAULT_ENTITIES_PATH
-    if not path.exists():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    data = _read_json(path or DEFAULT_ENTITIES_PATH)
+    if data is None:
         return {}
     lookup = {}
     for ent in data.get("entities", []):
@@ -39,6 +44,31 @@ def load_entities(path: Path | None):
             if name:
                 lookup[name] = ent
     return lookup
+
+
+def load_entities_by_id(path: Path | None):
+    """Load entity registry → {id: entity}. Returns {} if absent."""
+    data = _read_json(path or DEFAULT_ENTITIES_PATH)
+    if data is None:
+        return {}
+    return {ent.get("id"): ent for ent in data.get("entities", []) if ent.get("id")}
+
+
+def load_events(path: Path | None):
+    """Load JSONL event log. Returns []."""
+    path = path or DEFAULT_EVENTS_PATH
+    if not path.exists():
+        return []
+    events = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except Exception:
+            continue
+    return events
 
 
 def annotate(text: str, entity_lookup: dict) -> str:
@@ -144,8 +174,50 @@ def fmt_event(e):
     return f"- {start} - {end} {summary}"
 
 
-def generate_report(date, days, profiles, page_all=False, entity_lookup=None):
+def process_section(entities, events):
+    """Render 'in-progress processes' from entity registry + event log."""
+    processes = {
+        k: v for k, v in entities.items() if v.get("type") == "process"
+    }
+    if not processes:
+        return []
+    lines = ["## 进行中的过程", ""]
+    for pid, proc in sorted(
+        processes.items(), key=lambda x: x[1].get("canonical", "")
+    ):
+        stage = proc.get("current_stage") or "未知"
+        goal = proc.get("goal") or ""
+        lines.append(f"### {proc.get('canonical', '未命名')}（当前：{stage}）")
+        if goal:
+            lines.append(f"**目标**：{goal}")
+        next_events = [
+            e for e in events if e.get("object") == pid and e.get("state") == "planned"
+        ]
+        next_events.sort(key=lambda x: str(x.get("when", "")))
+        if next_events:
+            nxt = next_events[0]
+            where = nxt.get("where", "")
+            when = nxt.get("when", "")
+            detail = nxt.get("detail", "")
+            lines.append(f"**下一步**：{when} @{where} → {nxt.get('action')}：{detail}")
+        else:
+            lines.append("**下一步**：暂无")
+        lines.append("")
+    return lines
+
+
+def generate_report(
+    date, days, profiles, page_all=False, entity_lookup=None, entities=None, events=None
+):
+    entities = entities or {}
+    events = events or []
     lines = [f"# 人生简报（{date}，{days} 天）", ""]
+
+    # Spacetime process view: ordered processes and next events.
+    proc_lines = process_section(entities, events)
+    if proc_lines:
+        lines.extend(proc_lines)
+
     for name, profile in profiles.items():
         lines.append(f"## {name}（profile: {profile}）")
 
@@ -215,6 +287,8 @@ def main():
 
     profiles = {name: PROFILES.get(name, name) for name in args.profiles.split(",")}
     entity_lookup = {} if args.no_entities else load_entities(args.entities)
+    entities = {} if args.no_entities else load_entities_by_id(args.entities)
+    events = load_events(DEFAULT_EVENTS_PATH)
 
     if args.json:
         result = {}
@@ -231,7 +305,15 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
 
-    report = generate_report(args.date, args.days, profiles, args.page_all, entity_lookup)
+    report = generate_report(
+        args.date,
+        args.days,
+        profiles,
+        args.page_all,
+        entity_lookup,
+        entities,
+        events,
+    )
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(report, encoding="utf-8")
