@@ -248,6 +248,19 @@
       "source_dir": "tools/0-cli",
       "skill_md": "tools/0-cli/skills/life-brief.md",
       "invoke_template": "python tools/0-cli/scripts/life-brief.py {args}"
+    },
+    {
+      "name": "life-planner",
+      "display_name": "Life Planner",
+      "version": "0.1.0",
+      "description": "Daily action planner based on 100-year time budget and life management data.",
+      "category": "productivity",
+      "status": "ready",
+      "source_dir": "tools/life-planner",
+      "skill_md": "tools/life-planner/skills/SKILL.md",
+      "install_cmd": "pip install -e tools/life-planner",
+      "entry_point": "life-plan",
+      "invoke_template": "python tools/life-planner/daily_plan.py {args}"
     }
   ]
 }
