@@ -130,6 +130,18 @@ class LifeBriefTests(unittest.TestCase):
             brief.main()
         agenda.assert_called_once_with("life", "2026-09-10T00:00:00+08:00", "2026-09-17T00:00:00+08:00")
 
+    def test_review_template_includes_sections(self):
+        management = sample_management()
+        management["goals"] = [{"id": "g1", "status": "active", "title": "Goal", "next_action": "Do it"}]
+        entities = {"p": {"id": "p", "type": "process", "canonical": "Open", "current_stage": "stage1"}}
+        events = [{"object": "p", "state": "completed", "when": "2026-09-09", "action": "Done"}]
+        report = brief.generate_review("2026-09-10", 7, {"life": "life"}, entities=entities, events=events, management=management, offline=True)
+        self.assertIn("# 人生复盘", report)
+        self.assertIn("## 已完成事项", report)
+        self.assertIn("## 进行中过程", report)
+        self.assertIn("## 目标进展", report)
+        self.assertIn("## 复盘问题", report)
+
 
 if __name__ == "__main__":
     unittest.main()

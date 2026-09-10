@@ -391,6 +391,108 @@ def management_section(management, entities, events, report_date=None, area=None
     return lines
 
 
+def generate_review(
+    date, days, profiles, page_all=False, entity_lookup=None, entities=None, events=None,
+    management=None, offline=False, area=None
+):
+    """Generate a weekly/monthly review template."""
+    entities = entities or {}
+    events = events or []
+    management = management or {}
+    lines = [f"# 人生复盘（{date}，{days} 天）", ""]
+
+    # Completed items from events
+    completed_events = [e for e in events if e.get("state") == "completed"]
+    if completed_events:
+        lines.extend(["## 已完成事项", ""])
+        for e in completed_events[:20]:
+            when = e.get("when", "")
+            action = e.get("action", "")
+            obj = e.get("object", "")
+            detail = e.get("brief") or e.get("detail", "")
+            lines.append(f"- {when} {action} {obj}：{detail}")
+        lines.append("")
+
+    # Overdue tasks
+    if not offline:
+        lines.extend(["## 逾期任务", ""])
+        for name, profile in profiles.items():
+            tasks_result = collect_tasks(profile, page_all)
+            if "error" not in tasks_result:
+                tasks = tasks_result["items"]
+                overdue = [
+                    t for t in tasks
+                    if not t.get("completed")
+                    and _is_valid_due(t.get("due_at", ""))
+                    and _due_date(t["due_at"]) < date
+                ]
+                for t in overdue[:10]:
+                    lines.append(f"- 🔴 {t.get('summary')} (due: {_due_date(t.get('due_at', ''))}) [{name}]")
+        lines.append("")
+
+    # Process status
+    processes = _open_processes(entities)
+    if processes:
+        lines.extend(["## 进行中过程", ""])
+        for pid, proc in sorted(processes.items(), key=lambda x: x[1].get("canonical", "")):
+            stage = proc.get("current_stage") or "未知"
+            goal = proc.get("goal") or ""
+            lines.append(f"### {proc.get('canonical', '未命名')}（当前：{stage}）")
+            if goal:
+                lines.append(f"**目标**：{goal}")
+            next_events = [e for e in events if e.get("object") == pid and e.get("state") == "planned"]
+            next_events.sort(key=lambda x: str(x.get("when", "")))
+            if next_events:
+                nxt = next_events[0]
+                lines.append(f"**下一步**：{nxt.get('when')} @{nxt.get('where', '')} → {nxt.get('action')}")
+            else:
+                lines.append("**下一步**：未记录计划事件")
+            lines.append("")
+
+    # Health baseline
+    health = (management.get("century_plan") or {}).get("health_plan") or {}
+    baseline = health.get("baseline") or []
+    if baseline:
+        lines.extend(["## 健康基线", ""])
+        recorded = [
+            item for item in baseline
+            if item.get("value") is not None and item.get("source")
+            and _calendar_date(item.get("observed_on"))
+            and _calendar_date(item["observed_on"]) <= date
+        ]
+        lines.append(f"**有记录**：{len(recorded)}/{len(baseline)} 项")
+        missing = [item.get("name", item.get("id", "未知项")) for item in baseline if item not in recorded]
+        if missing:
+            lines.append(f"**待补充**：{'、'.join(missing)}")
+        lines.append("")
+
+    # Goals
+    goals = management.get("goals", [])
+    if goals:
+        lines.extend(["## 目标进展", ""])
+        for goal in goals:
+            status = goal.get("status", "unknown")
+            title = goal.get("title", goal.get("id", "未命名"))
+            next_action = goal.get("next_action", "")
+            lines.append(f"- **{title}** [{status}]：{next_action}")
+        lines.append("")
+
+    # Review questions
+    questions = (management.get("century_plan") or {}).get("review_questions") or []
+    if not questions:
+        questions = [
+            "本周/月最重要的进展是什么？",
+            "哪些过程需要调整优先级？",
+            "健康基线有哪些需要补充或更新？",
+            "下周/月最想完成的一件事是什么？",
+        ]
+    lines.extend(["## 复盘问题", ""])
+    lines.extend(f"- {q}" for q in questions)
+    lines.append("")
+
+    return "\n".join(lines)
+
+
 def generate_report(
     date, days, profiles, page_all=False, entity_lookup=None, entities=None, events=None,
     management=None, offline=False, compact=False, area=None
@@ -473,6 +575,7 @@ def main():
     parser.add_argument("--page-all", action="store_true", help="Fetch all task pages")
     parser.add_argument("--offline", action="store_true", help="Use local planning data only; do not call Lark")
     parser.add_argument("--compact", action="store_true", help="Skip century plan and sources; show only actionable sections")
+    parser.add_argument("--review", action="store_true", help="Generate weekly/monthly review template")
     parser.add_argument("--area", help="Filter management/process sections by life area id")
     parser.add_argument("--since", help="Only include events on/after this date (YYYY-MM-DD)")
     parser.add_argument("--until", help="Only include events on/before this date (YYYY-MM-DD)")
@@ -532,11 +635,17 @@ def main():
                 }
         report = json.dumps(result, ensure_ascii=False, indent=2)
     else:
-        report = generate_report(
-            args.date, args.days, profiles, args.page_all, entity_lookup,
-            entities, events, management, offline=args.offline,
-            compact=args.compact, area=args.area,
-        )
+        if args.review:
+            report = generate_review(
+                args.date, args.days, profiles, args.page_all, entity_lookup,
+                entities, events, management, offline=args.offline, area=args.area,
+            )
+        else:
+            report = generate_report(
+                args.date, args.days, profiles, args.page_all, entity_lookup,
+                entities, events, management, offline=args.offline,
+                compact=args.compact, area=args.area,
+            )
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(report, encoding="utf-8")

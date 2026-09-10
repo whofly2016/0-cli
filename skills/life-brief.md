@@ -43,6 +43,9 @@ zero run life-brief --area health --out _brief/life-health.md
 
 # 过滤事件时间范围
 zero run life-brief --since 2026-09-01 --until 2026-09-10 --out _brief/life-range.md
+
+# 周/月复盘模板：已完成、逾期、过程、健康、目标、复盘问题
+zero run life-brief --review --days 7 --out _brief/life-review-2026-09-10.md
 ```
 
 ## 百岁人生规划与数据含义
