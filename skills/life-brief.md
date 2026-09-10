@@ -34,6 +34,15 @@ zero run life-brief --offline --days 7 --out _brief/life-100-plan-2026-09-10.md
 
 # 离线结构化数据；明确标记 remote_status=not_fetched
 zero run life-brief --offline --json --out _brief/life-local.json
+
+# 紧凑模式：跳过百岁规划和来源，只看可执行部分
+zero run life-brief --compact --out _brief/life-compact.md
+
+# 只看某个生活领域（如 health / work / finance）
+zero run life-brief --area health --out _brief/life-health.md
+
+# 过滤事件时间范围
+zero run life-brief --since 2026-09-01 --until 2026-09-10 --out _brief/life-range.md
 ```
 
 ## 百岁人生规划与数据含义

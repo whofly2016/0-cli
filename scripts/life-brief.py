@@ -290,12 +290,18 @@ def fmt_event(e):
     return f"- {start} - {end} {summary}"
 
 
-def process_section(entities, events, report_date=None):
+def process_section(entities, events, report_date=None, management=None, area=None):
     """Render 'in-progress processes' from entity registry + event log."""
     report_date = report_date or datetime.now().strftime("%Y-%m-%d")
     processes = _open_processes(entities)
     if not processes:
         return []
+    if area and management:
+        portfolio = management.get("portfolio", [])
+        allowed = {x.get("process") for x in portfolio if x.get("area") == area}
+        processes = {pid: p for pid, p in processes.items() if pid in allowed}
+        if not processes:
+            return []
     lines = ["## 已登记且未关闭的过程", ""]
     for pid, proc in sorted(
         processes.items(), key=lambda x: x[1].get("canonical", "")
@@ -322,7 +328,7 @@ def process_section(entities, events, report_date=None):
     return lines
 
 
-def management_section(management, entities, events, report_date=None):
+def management_section(management, entities, events, report_date=None, area=None):
     """Render a compact portfolio/control view above raw task lists."""
     if not management:
         return []
@@ -351,10 +357,12 @@ def management_section(management, entities, events, report_date=None):
         if not mapping:
             unmapped.append(proc.get("canonical", pid))
             continue
+        if area and mapping.get("area") != area:
+            continue
         active_by_area.setdefault(mapping.get("area"), []).append(proc)
 
     for area_id, procs in active_by_area.items():
-        area = areas.get(area_id, {"name": area_id})
+        area_obj = areas.get(area_id, {"name": area_id})
         stale = 0
         no_next = 0
         for proc in procs:
@@ -372,12 +380,12 @@ def management_section(management, entities, events, report_date=None):
             flags.append(f"{stale} 个结束日期已过，状态待核实")
         suffix = f"；⚠️ {'，'.join(flags)}" if flags else ""
         names = "、".join(p.get("canonical", p.get("id", "")) for p in procs)
-        lines.append(f"- **{area.get('name', area_id)}**：{len(procs)} 个已登记过程（{names}）{suffix}")
+        lines.append(f"- **{area_obj.get('name', area_id)}**：{len(procs)} 个已登记过程（{names}）{suffix}")
 
     unassessed = [a.get("name") for a in areas.values() if a.get("status") == "unassessed"]
     if unassessed:
         lines.append(f"- **尚未建立基线的领域**：{'、'.join(unassessed)}")
-    if unmapped:
+    if unmapped and not area:
         lines.append(f"- **未归属领域的过程**：{'、'.join(unmapped)}")
     lines.append("")
     return lines
@@ -385,7 +393,7 @@ def management_section(management, entities, events, report_date=None):
 
 def generate_report(
     date, days, profiles, page_all=False, entity_lookup=None, entities=None, events=None,
-    management=None, offline=False
+    management=None, offline=False, compact=False, area=None
 ):
     entities = entities or {}
     events = events or []
@@ -393,14 +401,15 @@ def generate_report(
     lines = [f"# 人生简报（{date}，{days} 天）", ""]
     if offline:
         lines.extend(["离线模式：只读取本地规划、实体与事件；未获取飞书任务或日程。", ""])
-    lines.extend(century_section(management, date, days))
+    if not compact:
+        lines.extend(century_section(management, date, days))
 
-    mgmt_lines = management_section(management, entities, events, date)
+    mgmt_lines = management_section(management, entities, events, date, area=area)
     if mgmt_lines:
         lines.extend(mgmt_lines)
 
     # Spacetime process view: ordered processes and next events.
-    proc_lines = process_section(entities, events, date)
+    proc_lines = process_section(entities, events, date, management=management, area=area)
     if proc_lines:
         lines.extend(proc_lines)
 
@@ -449,7 +458,8 @@ def generate_report(
             for e in events[:10]:
                 lines.append(fmt_event(e))
         lines.append("")
-    lines.extend(century_sources(management))
+    if not compact:
+        lines.extend(century_sources(management))
     return "\n".join(lines)
 
 
@@ -462,6 +472,10 @@ def main():
     parser.add_argument("--json", action="store_true", help="Output JSON")
     parser.add_argument("--page-all", action="store_true", help="Fetch all task pages")
     parser.add_argument("--offline", action="store_true", help="Use local planning data only; do not call Lark")
+    parser.add_argument("--compact", action="store_true", help="Skip century plan and sources; show only actionable sections")
+    parser.add_argument("--area", help="Filter management/process sections by life area id")
+    parser.add_argument("--since", help="Only include events on/after this date (YYYY-MM-DD)")
+    parser.add_argument("--until", help="Only include events on/before this date (YYYY-MM-DD)")
     parser.add_argument("--events", type=Path, default=DEFAULT_EVENTS_PATH, help="Local event log JSONL")
     parser.add_argument(
         "--entities",
@@ -483,11 +497,19 @@ def main():
         parser.error("--date 必须是有效的 YYYY-MM-DD 日期")
     if args.days < 1:
         parser.error("--days 必须大于 0")
+    if args.since and not _calendar_date(args.since):
+        parser.error("--since 必须是有效的 YYYY-MM-DD 日期")
+    if args.until and not _calendar_date(args.until):
+        parser.error("--until 必须是有效的 YYYY-MM-DD 日期")
 
     profiles = {name.strip(): PROFILES.get(name.strip(), name.strip()) for name in args.profiles.split(",") if name.strip()}
     entity_lookup = {} if args.no_entities else load_entities(args.entities)
     entities = {} if args.no_entities else load_entities_by_id(args.entities)
     events = load_events(args.events)
+    if args.since:
+        events = [e for e in events if str(e.get("when", ""))[:10] >= args.since]
+    if args.until:
+        events = [e for e in events if str(e.get("when", ""))[:10] <= args.until]
     try:
         management = load_management(args.management)
     except ValueError as exc:
@@ -513,6 +535,7 @@ def main():
         report = generate_report(
             args.date, args.days, profiles, args.page_all, entity_lookup,
             entities, events, management, offline=args.offline,
+            compact=args.compact, area=args.area,
         )
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
