@@ -54,16 +54,31 @@ def collect_agenda(profile, start, end):
     return {"items": data.get("data", [])}
 
 
+def _is_valid_due(due: str) -> bool:
+    if not due:
+        return False
+    try:
+        year = int(due[:4])
+    except Exception:
+        return False
+    return year >= 2000
+
+
+def _due_date(due: str) -> str:
+    return due.split("T")[0] if _is_valid_due(due) else ""
+
+
 def fmt_task(t):
     summary = t.get("summary", "(no summary)")
     due = t.get("due_at", "")
     completed = t.get("completed", False)
     status = "✅" if completed else "⬜"
-    if not completed and due:
-        due_date = due.split("T")[0]
+    if not completed and _is_valid_due(due):
+        due_date = _due_date(due)
         if due_date < datetime.now().strftime("%Y-%m-%d"):
             status = "🔴"
-    return f"- {status} {summary} (due: {due})"
+    due_display = _due_date(due) if _is_valid_due(due) else "(无截止日期)"
+    return f"- {status} {summary} (due: {due_display})"
 
 
 def fmt_event(e):
@@ -99,22 +114,22 @@ def generate_report(date, days, profiles, page_all=False):
             overdue = [
                 t
                 for t in active
-                if t.get("due_at")
-                and t["due_at"].split("T")[0] < date
+                if _is_valid_due(t.get("due_at", ""))
+                and _due_date(t["due_at"]) < date
             ]
             upcoming = [
                 t
                 for t in active
-                if t.get("due_at")
-                and t["due_at"].split("T")[0] >= date
+                if _is_valid_due(t.get("due_at", ""))
+                and _due_date(t["due_at"]) >= date
             ]
-            no_due = [t for t in active if not t.get("due_at")]
+            no_due = [t for t in active if not _is_valid_due(t.get("due_at", ""))]
 
             lines.append(f"### 任务（未完成 {len(active)} 项）")
             for t in overdue[:10]:
-                lines.append(f"- 🔴 逾期 {t.get('summary')} (due: {t.get('due_at')})")
+                lines.append(f"- 🔴 逾期 {t.get('summary')} (due: {_due_date(t.get('due_at', ''))})")
             for t in upcoming[:10]:
-                lines.append(f"- ⬜ {t.get('summary')} (due: {t.get('due_at')})")
+                lines.append(f"- ⬜ {t.get('summary')} (due: {_due_date(t.get('due_at', ''))})")
             for t in no_due[:5]:
                 lines.append(f"- ⬜ {t.get('summary')} (无截止日期)")
 

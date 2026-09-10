@@ -55,8 +55,24 @@ zero run life-brief --json
 - 调用 `lark-cli --profile company calendar +agenda --json`
 - 调用 `lark-cli --profile life calendar +agenda --json`
 - 合并后按逾期、待完成、日程分组输出
+- 自动过滤 `due_at` 年份 < 2000 的无效日期
 
 ## 依赖
 
 - `lark-cli` 已安装并登录
 - `company` 和 `life` profile 有效
+
+## 每日定时任务（可选）
+
+安装每日 09:00 自动运行：
+
+```powershell
+# 需管理员权限
+pwsh -File tools/0-cli/scripts/install-life-brief-task.ps1 -Time 09:00
+```
+
+删除任务：
+
+```powershell
+Unregister-ScheduledTask -TaskName "LifeBrief-Daily" -Confirm:$false
+```
