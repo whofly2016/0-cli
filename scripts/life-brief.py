@@ -198,7 +198,7 @@ def process_section(entities, events):
             nxt = next_events[0]
             where = nxt.get("where", "")
             when = nxt.get("when", "")
-            detail = nxt.get("detail", "")
+            detail = nxt.get("brief") or nxt.get("detail", "")
             lines.append(f"**下一步**：{when} @{where} → {nxt.get('action')}：{detail}")
         else:
             lines.append("**下一步**：暂无")
