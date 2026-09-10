@@ -8,6 +8,7 @@ Merges lark-cli tasks + calendar agenda into a single Markdown report.
 import argparse
 import difflib
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -217,6 +218,25 @@ def run_lark(args, profile):
         return {"error": result.stderr}
     try:
         # lark-cli 1.0.65 may emit raw control chars inside JSON strings.
+        return json.loads(result.stdout, strict=False)
+    except json.JSONDecodeError:
+        return {"error": "invalid json output"}
+
+
+def push_brief(report, chat_id, profile):
+    """Send the brief to a Feishu chat via lark-cli."""
+    content = json.dumps({"text": report}, ensure_ascii=False)
+    cmd = [
+        "lark-cli", "--profile", profile,
+        "im", "+send-message",
+        "--chat-id", chat_id,
+        "--msg-type", "text",
+        "--content", content,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    if result.returncode != 0:
+        return {"error": result.stderr}
+    try:
         return json.loads(result.stdout, strict=False)
     except json.JSONDecodeError:
         return {"error": "invalid json output"}
@@ -578,6 +598,9 @@ def main():
     parser.add_argument("--compact", action="store_true", help="Skip century plan and sources; show only actionable sections")
     parser.add_argument("--review", action="store_true", help="Generate weekly/monthly review template")
     parser.add_argument("--diff", type=Path, help="Compare generated report with a previous brief file")
+    parser.add_argument("--push", action="store_true", help="Send the generated brief to a Feishu chat")
+    parser.add_argument("--to", help="Feishu chat_id for --push (or set LARK_BRIEF_CHAT_ID)")
+    parser.add_argument("--push-profile", default="life", help="lark-cli profile for --push")
     parser.add_argument("--area", help="Filter management/process sections by life area id")
     parser.add_argument("--since", help="Only include events on/after this date (YYYY-MM-DD)")
     parser.add_argument("--until", help="Only include events on/before this date (YYYY-MM-DD)")
@@ -659,6 +682,15 @@ def main():
             tofile="current",
         )
         report = "".join(diff)
+
+    if args.push:
+        chat_id = args.to or os.environ.get("LARK_BRIEF_CHAT_ID")
+        if not chat_id:
+            parser.error("--push 需要 --to 或环境变量 LARK_BRIEF_CHAT_ID")
+        push_result = push_brief(report, chat_id, args.push_profile)
+        if "error" in push_result:
+            parser.error(f"推送失败: {push_result['error'][:200]}")
+        print(f"pushed to {chat_id}")
 
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)

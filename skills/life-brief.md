@@ -49,6 +49,9 @@ zero run life-brief --review --days 7 --out _brief/life-review-2026-09-10.md
 
 # 与上一份简报对比（生成 unified diff）
 zero run life-brief --diff _brief/life-2026-09-09.md --out _brief/life-diff.md
+
+# 推送到飞书群（需 --to 或 LARK_BRIEF_CHAT_ID）
+zero run life-brief --push --to oc_xxxxxxxx --push-profile life
 ```
 
 ## 百岁人生规划与数据含义

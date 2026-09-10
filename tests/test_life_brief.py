@@ -157,6 +157,17 @@ class LifeBriefTests(unittest.TestCase):
             self.assertIn("+++", result)
             self.assertIn("@@", result)
 
+    def test_push_calls_lark_cli(self):
+        argv = [str(SCRIPT), "--offline", "--no-entities", "--push", "--to", "oc_test"]
+        with patch.object(brief.sys, "argv", argv), patch.object(
+            brief, "push_brief", return_value={"code": 0}
+        ) as push, redirect_stdout(io.StringIO()):
+            brief.main()
+        push.assert_called_once()
+        args, _ = push.call_args
+        self.assertEqual(args[1], "oc_test")
+        self.assertEqual(args[2], "life")
+
 
 if __name__ == "__main__":
     unittest.main()
