@@ -35,6 +35,10 @@ zero scan                   # 扫描 workspace 中的 cli-anything-registry.json
 zero scan --json            # JSON 输出扫描结果
 zero brief                  # 生成人生简报（等价于 zero run life-brief）
 zero brief --offline --days 7 --out _brief/life-week.md
+zero brief --compact        # 紧凑模式，跳过百岁规划
+zero brief --review --days 7 --out _brief/life-review.md
+zero brief --diff _brief/life-2026-09-09.md --out _brief/life-diff.md
+zero brief --push --to oc_xxxxxxxx --push-profile life
 ```
 
 ## 注册新工具
